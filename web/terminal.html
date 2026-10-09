@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="/static/i18n-en.js"></script>
+<script src="/static/i18n.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moat 터미널</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0c1424">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/xterm.css">
+<script src="/static/app.js" defer></script>
+<script src="/static/xterm.js" defer></script>
+<script src="/static/addon-fit.js" defer></script>
+<script src="/static/terminal.js" defer></script>
+</head>
+<body data-page="terminal" class="term-page">
+<header class="term-bar">
+  <a href="/dashboard" class="meta">← 대시보드</a>
+  <strong id="term-title">터미널</strong>
+  <select id="term-user" hidden></select>
+  <span id="term-status" class="meta"></span>
+  <span class="spacer"></span>
+  <button id="term-connect" class="small primary" hidden>연결</button>
+  <button id="term-close" class="small" hidden>닫기</button>
+</header>
+<div id="term" class="term-box"></div>
+<p id="msg" class="msg" role="status"></p>
+</body>
+</html>

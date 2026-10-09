@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="/static/i18n-en.js"></script>
+<script src="/static/i18n.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moat 서비스</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0c1424">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/icons.js" defer></script>
+<script src="/static/app.js" defer></script>
+<script src="/static/dashboard.js" defer></script>
+</head>
+<body data-page="services" data-shell="services">
+<main class="wide">
+  <header class="top">
+    <div>
+      <h1>서비스</h1>
+      <div class="meta" id="summary">불러오는 중…</div>
+    </div>
+    <div class="actions">
+      <button id="add-service" class="primary small">서비스 추가</button>
+    </div>
+  </header>
+
+  <div id="edge-banner" class="banner" hidden></div>
+
+  <section id="apps-section" hidden>
+    <h2>실행 중인 앱</h2>
+    <div class="meta">서버에서 찾은, 아직 공개하지 않은 앱입니다. "공개"를 누르면 주소가 채워진 채로 열립니다.</div>
+    <ul class="list" id="apps"></ul>
+    <details id="apps-hidden-box" class="more" hidden>
+      <summary id="apps-hidden-title"></summary>
+      <ul class="list" id="apps-hidden"></ul>
+    </details>
+    <details id="apps-noport-box" class="more" hidden>
+      <summary id="apps-noport-title"></summary>
+      <div class="meta">호스트에 포트를 열지 않은 컨테이너는 공개할 수 없습니다. 예: <code>-p 127.0.0.1:8080:80</code>
+        (127.0.0.1에만 열어도 Moat가 터널로 연결합니다).</div>
+      <ul class="list" id="apps-noport"></ul>
+    </details>
+  </section>
+
+  <h2>공개한 서비스</h2>
+  <ul class="list" id="services"></ul>
+
+  <dialog id="svc-dialog">
+    <form method="dialog" class="stack" id="svc-form">
+      <h2 id="svc-title">서비스 추가</h2>
+      <label class="field" id="svc-node-box">서버
+        <select id="svc-node"></select>
+      </label>
+      <div class="field" id="svc-candidates-box">발견된 포트 (누르면 채워집니다)
+        <div id="svc-candidates" class="chips"></div>
+      </div>
+      <label class="field" id="svc-upstream-box">업스트림 (주소:포트)
+        <input id="svc-upstream" placeholder="예: 10.200.0.2:3000" autocomplete="off" required>
+      </label>
+      <label class="field">이름
+        <input id="svc-name" maxlength="32" placeholder="예: kuma" autocomplete="off" required>
+      </label>
+      <label class="field">도메인
+        <input id="svc-host" placeholder="예: kuma.example.com" autocomplete="off" required>
+      </label>
+      <fieldset class="field radios" id="svc-auth-box">
+        <legend>접근</legend>
+        <label><input type="radio" name="svc-auth" value="moat" checked> Moat 로그인 필요</label>
+        <label><input type="radio" name="svc-auth" value="public"> 누구나 (공개)</label>
+      </fieldset>
+      <label class="field" id="svc-paths-box">로그인 없이 열어둘 경로 (한 줄에 하나, 예: /api/push/)
+        <textarea id="svc-paths" rows="3" autocomplete="off"></textarea>
+      </label>
+      <details class="more" id="svc-adv">
+        <summary>고급 — 경로·리다이렉트·HTTPS 업스트림</summary>
+        <div class="stack">
+          <label class="field">유형
+            <select id="svc-kind"><option value="proxy">프록시 (업스트림으로 전달)</option><option value="redirect">리다이렉트 (다른 주소로 보냄)</option></select>
+          </label>
+          <label class="field" id="svc-redirect-box" hidden>보낼 주소 (경로·쿼리는 그대로 붙음)
+            <input id="svc-redirect" placeholder="https://moat.example.com/" autocomplete="off"></label>
+          <label class="field">경로 접두사 (이 경로 아래만 이 서비스로 — 같은 도메인에 여러 서비스)
+            <input id="svc-prefix" placeholder="/" autocomplete="off"></label>
+          <label class="check" id="svc-strip-box"><input type="checkbox" id="svc-strip"> 업스트림에 넘길 때 접두사 제거 (/api/users → /users)</label>
+          <div class="stack" id="svc-proxy-opts">
+            <label class="field">업스트림 프로토콜
+              <select id="svc-tls"><option value="0">http</option><option value="1">https</option><option value="2">https (인증서 검증 안 함 — 자체 서명 장비)</option></select>
+            </label>
+            <label class="field">Host 헤더 (비우면 원래 도메인)
+              <input id="svc-hosthdr" autocomplete="off" placeholder="예: localhost"></label>
+            <label class="field">첫 응답 타임아웃 (초, 0 = 제한 없음)
+              <input id="svc-timeout" type="number" min="0" max="3600" value="0"></label>
+          </div>
+        </div>
+      </details>
+      <details class="more">
+        <summary>홈 화면 표시</summary>
+        <div class="stack">
+          <label class="field">그룹 <input id="svc-group" maxlength="40" autocomplete="off" placeholder="예: 시스템"></label>
+          <label class="field">설명 <input id="svc-desc" maxlength="200" autocomplete="off"></label>
+          <label class="field">아이콘 이름 (선택, dashboard-icons 이름 — 비우면 자동)
+            <input id="svc-icon" maxlength="64" autocomplete="off" placeholder="예: grafana"></label>
+          <label class="check"><input type="checkbox" id="svc-onhome" checked> 홈 화면에 표시</label>
+        </div>
+      </details>
+      <div class="row end">
+        <button value="cancel" formnovalidate>취소</button>
+        <button id="svc-save" class="primary" value="default">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <p id="msg" class="msg" role="status"></p>
+</main>
+</body>
+</html>

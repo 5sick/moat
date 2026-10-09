@@ -1,0 +1,8 @@
+{
+  "name": "moat-e2e-browser",
+  "private": true,
+  "description": "실제 브라우저(Chromium + 가상 인증기)로 패스키 흐름을 검증하는 E2E 테스트",
+  "type": "module",
+  "scripts": { "test": "node passkey_flow.mjs" },
+  "devDependencies": { "playwright": "1.63.0" }
+}

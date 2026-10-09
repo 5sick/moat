@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="/static/i18n-en.js"></script>
+<script src="/static/i18n.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moat 설정</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0c1424">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/icons.js" defer></script>
+<script src="/static/app.js" defer></script>
+<script src="/static/dashboard.js" defer></script>
+</head>
+<body data-page="settings" data-shell="settings">
+<main class="narrow">
+  <header class="top">
+    <div>
+      <h1>설정</h1>
+      <div class="meta" id="about"></div>
+    </div>
+    <div class="actions">
+    </div>
+  </header>
+
+  <h2>사람 초대</h2>
+  <form class="card stack" id="invite-form">
+    <p class="meta">초대 링크를 연 사람은 패스키를 만들고 바로 이 Moat에 로그인합니다. 내 새 기기를 추가할 때도 쓸 수 있습니다.
+      링크는 24시간 동안 한 번만 쓸 수 있습니다.</p>
+    <label class="field">이메일 (사용자 이름으로 쓰임)
+      <input id="invite-email" type="email" required autocomplete="off" placeholder="name@example.com">
+    </label>
+    <div class="row end"><button class="primary" id="invite-create">초대 링크 만들기</button></div>
+    <div id="invite-result" class="stack" hidden>
+      <pre class="cmd" id="invite-link"></pre>
+      <div class="row end"><button type="button" class="small" id="invite-copy">복사</button></div>
+    </div>
+  </form>
+
+  <h2>기능</h2>
+  <div class="card stack" id="features">
+    <p class="meta">쓰지 않는 기능은 끌 수 있습니다. 모든 서버에 바로 적용됩니다.</p>
+    <label class="check"><input type="checkbox" data-f="monitoring"> 리소스 모니터링 — CPU·메모리·디스크·네트워크 그래프와 관련 알림</label>
+    <label class="check"><input type="checkbox" data-f="service_checks"> 서비스 감시 — 등록한 서비스가 응답하는지 1분마다 확인·알림</label>
+    <label class="check"><input type="checkbox" data-f="terminal"> 웹 터미널</label>
+    <div class="meta">보안 감시</div>
+    <label class="check"><input type="checkbox" data-f="security.ssh"> SSH 로그인·실패</label>
+    <label class="check"><input type="checkbox" data-f="security.sudo"> sudo·su (관리 계정이 아닌 경우)</label>
+    <label class="check"><input type="checkbox" data-f="security.account"> 계정 추가·변경</label>
+    <label class="check"><input type="checkbox" data-f="security.files"> 중요 파일 변경 (authorized_keys·sudoers·sshd 설정 등)</label>
+    <label class="check"><input type="checkbox" data-f="security.ports"> 새로 열린 포트</label>
+  </div>
+
+  <h2>노드에서 서비스 공개</h2>
+  <div class="card stack">
+    <p class="meta">서버에서 <code>sudo moat-agent expose 3000 --name grafana</code> 한 줄로 서비스를 공개합니다 (tailscale serve처럼).
+      자기 서버의 포트만, 기본 도메인 아래 주소만 열 수 있고, 공개할 때마다 알림과 감사 로그가 남습니다.</p>
+    <label class="check"><input type="checkbox" id="expose-on"> 서버의 root가 직접 서비스를 공개하도록 허용</label>
+  </div>
+
+  <h2>알림 — 텔레그램</h2>
+  <form class="card stack" id="tg-form">
+    <p class="meta">서버 응답 없음·디스크·메모리·서비스 장애가 생기거나 해소되면 알립니다.
+      @BotFather에서 봇을 만들어 토큰을 받고, 봇에게 먼저 아무 말이나 보낸 뒤 chat id를 넣으세요.</p>
+    <label class="field">봇 토큰 <span class="meta" id="tg-token-hint"></span>
+      <input id="tg-token" autocomplete="off" placeholder="바꿀 때만 입력 (비우면 그대로)">
+    </label>
+    <label class="field">chat id
+      <input id="tg-chat" autocomplete="off" placeholder="예: 123456789">
+    </label>
+    <label class="field">알림 언어
+      <select id="notify-lang"><option value="ko">한국어</option><option value="en">English</option></select>
+    </label>
+    <div class="row end">
+      <button type="button" class="small danger" id="tg-clear">끄기</button>
+      <button type="button" class="small" id="tg-test">테스트 발송</button>
+      <button class="primary" id="tg-save">저장</button>
+    </div>
+  </form>
+
+  <h2>Google 로그인 (선택)</h2>
+  <form class="card stack" id="gg-form">
+    <p class="meta">패스키만으로 충분합니다. Google 계정으로도 로그인하고 싶을 때만 설정하세요.
+      Google Cloud Console → API 및 서비스 → 사용자 인증 정보 → OAuth 클라이언트 ID(웹 애플리케이션)에서
+      아래 리디렉션 URI를 등록합니다.</p>
+    <label class="field">승인된 리디렉션 URI
+      <input id="gg-redirect" readonly>
+    </label>
+    <label class="field">클라이언트 ID
+      <input id="gg-id" autocomplete="off" placeholder="…apps.googleusercontent.com">
+    </label>
+    <label class="field">클라이언트 보안 비밀 <span class="meta" id="gg-secret-hint"></span>
+      <input id="gg-secret" autocomplete="off" placeholder="바꿀 때만 입력 (비우면 그대로)">
+    </label>
+    <div class="row end">
+      <button type="button" class="small danger" id="gg-clear">끄기</button>
+      <button class="primary" id="gg-save">저장</button>
+    </div>
+  </form>
+
+  <p id="msg" class="msg" role="status"></p>
+</main>
+</body>
+</html>

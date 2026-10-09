@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="/static/i18n-en.js"></script>
+<script src="/static/i18n.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moat 서버</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0c1424">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/icons.js" defer></script>
+<script src="/static/app.js" defer></script>
+<script src="/static/dashboard.js" defer></script>
+</head>
+<body data-page="node" data-shell="servers">
+<main class="wide">
+  <div class="meta"><a href="/dashboard">← 서버</a></div>
+  <header class="top">
+    <div>
+      <h1><span id="status-dot" class="dot"></span> <span id="name">…</span></h1>
+      <div class="meta" id="subtitle"></div>
+    </div>
+    <div class="actions">
+      <a id="open-term" class="btn small primary" target="_blank" rel="noopener" hidden>터미널</a>
+      <button id="edge" class="small">입구로 지정</button>
+      <button id="rename" class="small">이름 변경</button>
+      <button id="delete" class="small danger">삭제</button>
+    </div>
+  </header>
+
+  <div id="alerts" class="alerts" hidden></div>
+
+  <div class="row">
+    <h2>사용량</h2>
+    <div class="seg" id="range">
+      <button data-range="live" class="on">실시간</button>
+      <button data-range="6h">6시간</button>
+      <button data-range="24h">24시간</button>
+      <button data-range="7d">7일</button>
+      <button data-range="30d">30일</button>
+    </div>
+  </div>
+  <div class="charts">
+    <figure class="card chart"><figcaption>CPU <b id="v-cpu"></b></figcaption><canvas id="c-cpu"></canvas></figure>
+    <figure class="card chart"><figcaption>메모리 <b id="v-mem"></b></figcaption><canvas id="c-mem"></canvas></figure>
+    <figure class="card chart"><figcaption>네트워크 <b id="v-net"></b></figcaption><canvas id="c-net"></canvas></figure>
+    <figure class="card chart"><figcaption>디스크 (/) <b id="v-disk"></b></figcaption><canvas id="c-disk"></canvas></figure>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2>시스템</h2>
+      <dl class="kv card" id="system"></dl>
+      <h2>디스크</h2>
+      <ul class="list" id="disks"></ul>
+      <h2>실패한 systemd 유닛</h2>
+      <ul class="list" id="units"></ul>
+    </section>
+    <section>
+      <h2>컨테이너</h2>
+      <ul class="list" id="containers"></ul>
+      <h2>WireGuard 피어</h2>
+      <ul class="list" id="wg"></ul>
+      <h2>열린 포트</h2>
+      <ul class="list" id="ports"></ul>
+      <div class="row"><h2>터미널 기록</h2><button id="recordings-clear" class="small danger" hidden>모두 삭제</button></div>
+      <ul class="list" id="recordings"></ul>
+    </section>
+  </div>
+
+  <p id="msg" class="msg" role="status"></p>
+</main>
+</body>
+</html>

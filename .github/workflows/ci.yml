@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+      - run: test -z "$(gofmt -l agent)" || (gofmt -l agent; exit 1)
+      - run: make test-agent
+      - run: make agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: moat-agent
+          path: dist/
+
+  hub:
+    needs: agent
+    runs-on: ubuntu-latest
+    # Ubuntu 26.04 / Drogon 1.9 환경에서 빌드
+    container: ubuntu:26.04
+    steps:
+      - name: 의존성 설치
+        run: |
+          apt-get update -q
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
+            git ca-certificates build-essential cmake ninja-build pkg-config \
+            libdrogon-dev libpq-dev libmariadb-dev libhiredis-dev libyaml-cpp-dev libc-ares-dev \
+            libssl-dev libsqlite3-dev zlib1g-dev uuid-dev libjsoncpp-dev libbrotli-dev libcbor-dev libcurl4-openssl-dev \
+            nlohmann-json3-dev python3 python3-jwt python3-cryptography sqlite3 curl iproute2
+      - uses: actions/checkout@v4
+      - run: make test-hub
+      - name: Google 로그인 E2E (가짜 Google 서버)
+        run: tests/e2e/google_flow.sh build/hub/moat-hub
+      - uses: actions/download-artifact@v4
+        with:
+          name: moat-agent
+          path: dist/
+      - name: Agent E2E (join → 서명 인증 → 메트릭 → 삭제)
+        run: chmod +x dist/moat-agent-* && tests/e2e/agent_flow.sh build/hub/moat-hub dist
+      - name: 입구(edge) E2E (서비스 등록 → 로그인 보호 → Hub 장애)
+        run: tests/e2e/edge_flow.sh build/hub/moat-hub dist
+      - name: 웹 설정 E2E (텔레그램·초대)
+        run: tests/e2e/settings_flow.sh build/hub/moat-hub
+      - name: Tailscale 신원 로그인 E2E
+        run: tests/e2e/tailscale_flow.sh build/hub/moat-hub
+      - name: 보안 감시 E2E
+        run: tests/e2e/security_flow.sh build/hub/moat-hub dist

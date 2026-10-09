@@ -1,0 +1,71 @@
+name: release
+
+# v로 시작하는 태그를 푸시하면 Hub(정적)·Agent 바이너리를 빌드해 GitHub Release로 올린다.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  hub:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 정적 moat-hub 빌드 (Alpine/musl)
+        run: docker build -f packaging/hub-static/Dockerfile --build-arg VERSION=${GITHUB_REF_NAME} -o type=local,dest=out .
+      - run: file out/moat-hub-linux-${{ matrix.arch }} && out/moat-hub-linux-${{ matrix.arch }} --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hub-${{ matrix.arch }}
+          path: |
+            out/moat-hub-linux-${{ matrix.arch }}
+            out/THIRD_PARTY_LICENSES-hub.txt
+
+  agent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+      - run: make agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent
+          path: dist/
+
+  release:
+    needs: [hub, agent]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: 산출물 정리·체크섬
+        run: |
+          mkdir rel
+          cp art/hub-amd64/* art/hub-arm64/* rel/
+          cp art/agent/moat-agent-linux-* art/agent/VERSION art/agent/THIRD_PARTY_LICENSES-agent.txt rel/
+          cp LICENSE rel/LICENSE.txt
+          cp deploy/install.sh rel/install.sh 2>/dev/null || true
+          chmod +x rel/moat-*
+          cd rel && sha256sum moat-* > SHA256SUMS && cat SHA256SUMS
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release create "$tag" rel/* --title "Moat $tag" --generate-notes || gh release upload "$tag" rel/* --clobber

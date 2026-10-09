@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="/static/i18n-en.js"></script>
+<script src="/static/i18n.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moat</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0c1424">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/icons.js" defer></script>
+<script src="/static/app.js" defer></script>
+<script src="/static/dashboard.js" defer></script>
+</head>
+<body data-page="home" data-shell="home">
+<main>
+  <div class="home-head">
+    <div>
+      <div class="greet" id="greet">안녕하세요</div>
+      <div class="meta" id="today"></div>
+    </div>
+    <div class="actions">
+      <button id="edit-home" class="small">편집</button>
+    </div>
+  </div>
+  <form class="search" id="search" role="search">
+    <span id="search-icon"></span>
+    <input id="q" name="q" placeholder="웹 검색" autocomplete="off" aria-label="웹 검색">
+  </form>
+  <div class="summary" id="pills"></div>
+  <div id="groups"></div>
+
+  <dialog id="link-dialog">
+    <form method="dialog" class="stack" id="link-form">
+      <h2 id="link-title">링크 추가</h2>
+      <label class="field">이름 <input id="link-name" maxlength="60" required autocomplete="off"></label>
+      <label class="field">주소 <input id="link-url" type="url" required placeholder="https://" autocomplete="off"></label>
+      <label class="field">그룹 <input id="link-group" maxlength="40" list="group-list" autocomplete="off"></label>
+      <datalist id="group-list"></datalist>
+      <label class="field">설명 <input id="link-desc" maxlength="200" autocomplete="off"></label>
+      <label class="field">아이콘 이름 (선택, 예: github — dashboard-icons 이름. 비우면 자동)
+        <input id="link-icon" maxlength="64" autocomplete="off"></label>
+      <div class="row">
+        <button type="button" id="link-delete" class="small danger" hidden>삭제</button>
+        <span class="row end">
+          <button value="cancel" formnovalidate>취소</button>
+          <button id="link-save" class="primary" value="default">저장</button>
+        </span>
+      </div>
+    </form>
+  </dialog>
+  <p id="msg" class="msg" role="status"></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="/static/i18n-en.js"></script>
+<script src="/static/i18n.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moat 계정</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0c1424">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/icons.js" defer></script>
+<script src="/static/app.js" defer></script>
+</head>
+<body data-page="account" data-shell="account">
+<main class="narrow">
+  <div class="meta"><a href="/dashboard">← 서버</a></div>
+  <header class="top">
+    <div>
+      <h1>계정</h1>
+      <div class="meta" id="email"></div>
+    </div>
+    <button id="logout">로그아웃</button>
+  </header>
+
+  <div class="banner" id="setup-banner" hidden>
+    <strong>패스키를 등록하세요.</strong>
+    <div class="meta">다음부터는 지문·얼굴·PIN 한 번으로 로그인할 수 있습니다. Google 로그인은 패스키를 잃어버렸을 때의 예비 수단입니다.</div>
+  </div>
+
+  <div class="banner" id="recovered-banner" hidden>
+    <strong>복구 코드로 로그인했습니다.</strong>
+    <div class="meta">지금 "패스키 추가"로 이 기기에 새 패스키를 등록하세요 (몇 분 안에). 잃어버린 기기의 패스키는 아래에서 삭제하세요.</div>
+  </div>
+
+  <div class="row"><h2>패스키</h2><button id="add-passkey" class="primary small">패스키 추가</button></div>
+  <ul class="list" id="passkeys"></ul>
+
+  <div class="row"><h2>복구 코드</h2><button id="new-codes" class="small">새로 만들기</button></div>
+  <div class="meta" id="recovery-status">불러오는 중…</div>
+  <div class="codes" id="codes-box" hidden>
+    <div class="meta">아래 코드는 지금 한 번만 보입니다. 서버 밖 안전한 곳(비밀번호 관리자, 종이)에 보관하세요. 이전 코드는 더 이상 쓸 수 없습니다.</div>
+    <pre id="codes"></pre>
+    <div class="row"><button id="copy-codes" class="small">복사</button><button id="save-codes" class="small">파일로 저장</button></div>
+  </div>
+
+  <div class="row"><h2>로그인된 기기</h2><button id="revoke-others" class="small danger">다른 기기 모두 로그아웃</button></div>
+  <ul class="list" id="sessions"></ul>
+
+  <p id="msg" class="msg" role="status"></p>
+</main>
+</body>
+</html>

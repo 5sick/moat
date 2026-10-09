@@ -1,0 +1,10 @@
+/build/
+/dist/
+*.o
+compile_commands.json
+.cache/
+node_modules/
+web/dist/
+*.db
+*.db-*
+.env

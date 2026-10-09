@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="/static/i18n-en.js"></script>
+<script src="/static/i18n.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moat</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0c1424">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/icons.js" defer></script>
+<script src="/static/app.js" defer></script>
+<script src="/static/dashboard.js" defer></script>
+</head>
+<body data-page="dashboard" data-shell="servers">
+<main class="wide">
+  <header class="top">
+    <div>
+      <h1>서버</h1>
+      <div class="meta" id="summary">불러오는 중…</div>
+    </div>
+    <div class="actions">
+      <button id="add-node" class="primary small">서버 추가</button>
+    </div>
+  </header>
+
+  <div id="alerts" class="alerts" hidden></div>
+  <div id="nodes" class="grid"></div>
+  <div id="empty" class="card empty" hidden>
+    <h2>아직 등록된 서버가 없습니다</h2>
+    <p class="meta">"서버 추가"를 누르면 새 서버에서 실행할 명령 한 줄이 나옵니다.</p>
+  </div>
+
+  <dialog id="join-dialog">
+    <form method="dialog" class="stack" id="join-form">
+      <h2>서버 추가</h2>
+      <label class="field">이름 (비우면 서버의 hostname)
+        <input id="join-name" maxlength="32" placeholder="예: web-1" autocomplete="off">
+      </label>
+      <div class="row end">
+        <button value="cancel" formnovalidate>취소</button>
+        <button id="join-create" class="primary" value="default">명령 만들기</button>
+      </div>
+    </form>
+    <div id="join-result" class="stack" hidden>
+      <h2>새 서버에서 실행하세요</h2>
+      <pre class="cmd" id="join-cmd"></pre>
+      <div class="row">
+        <span class="meta" id="join-expire"></span>
+        <button id="join-copy" class="small">복사</button>
+      </div>
+      <p class="meta">root 권한(sudo)으로 실행합니다. 이 명령은 한 번만 쓸 수 있고 15분 뒤 만료됩니다.
+        Ubuntu·Debian·Rocky 등 systemd를 쓰는 리눅스(x86_64·ARM64)를 지원합니다.</p>
+      <p class="meta" id="join-wait">서버가 접속하기를 기다리는 중…</p>
+      <div class="row end"><button id="join-close">닫기</button></div>
+    </div>
+  </dialog>
+
+  <p id="msg" class="msg" role="status"></p>
+</main>
+</body>
+</html>
