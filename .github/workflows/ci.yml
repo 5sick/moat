@@ -53,3 +53,5 @@ jobs:
         run: tests/e2e/tailscale_flow.sh build/hub/moat-hub
       - name: 보안 감시 E2E
         run: tests/e2e/security_flow.sh build/hub/moat-hub dist
+      - name: 비상 출입구 E2E (복구 코드·백업·복원)
+        run: tests/e2e/recovery_flow.sh build/hub/moat-hub

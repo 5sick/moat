@@ -47,6 +47,12 @@ issues() { curl -s -H "Cookie: $S" "$BASE/api/security"; }
 J="$DIR/journal"; W="$DIR/authorized_keys"
 echo "key1" > "$W"; : > "$J"
 ME=$(id -un)
+# root로 돌면(CI 컨테이너) Agent는 sudo 그룹의 일반 계정(uid 1000+)만 관리 계정으로 본다 → 하나 만든다
+if [ "$(id -u)" = 0 ]; then
+    getent group sudo >/dev/null || groupadd sudo
+    id -u moatci >/dev/null 2>&1 || useradd -m -u 1500 -G sudo -s /bin/bash moatci
+    ME=moatci
+fi
 jl() { python3 -c 'import json,sys,time; print(json.dumps({"SYSLOG_IDENTIFIER":sys.argv[1],"MESSAGE":sys.argv[2],"__REALTIME_TIMESTAMP":str(int(time.time()*1e6)),"__CURSOR":"c"}))' "$1" "$2" >> "$J"; }
 wait_tg() { for _ in $(seq 60); do [ "$(wc -l < "$DIR/tg.log" 2>/dev/null || echo 0)" -ge "$1" ] && return 0; sleep 0.1; done; return 1; }
 wait_text() { for _ in $(seq 60); do grep -q "$1" "$DIR/tg.log" 2>/dev/null && return 0; sleep 0.1; done; return 1; }
