@@ -80,6 +80,8 @@ add_library(moat_core STATIC
     src/routes_home.cc
     src/routes_expose.cc
     src/routes_portmap.cc
+    src/routes_channels.cc
+    src/cluster/channels.cc
     src/cluster/icons.cc
     src/cluster/apps.cc
     src/settings.cc

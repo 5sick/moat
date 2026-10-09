@@ -71,5 +71,56 @@ ev=$(sqlite3 "$DIR/hub.db" "SELECT group_concat(event, ',') FROM audit_log")
 case "$ev" in *settings_changed*invite_created*) ok "감사 로그" ;; *) bad "감사 로그 ($ev)";; esac
 curl -s "$BASE/auth/methods" | grep -q '"google":false' && ok "Google 미설정 표시" || bad "methods"
 
+# 알림 채널: 웹훅(서명)·ntfy — 가짜 서버가 받은 요청을 확인
+cat > "$DIR/hook.py" <<'PY'
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class H(BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode()
+        rec = {"path": self.path, "body": body, "sig": self.headers.get("X-Moat-Signature", ""),
+               "ts": self.headers.get("X-Moat-Timestamp", ""), "prio": self.headers.get("Priority", ""),
+               "auth": self.headers.get("Authorization", ""), "title": self.headers.get("Title", "")}
+        open(sys.argv[2], "a").write(json.dumps(rec, ensure_ascii=False) + "\n")
+        self.send_response(500 if self.path == "/broken" else 200); self.end_headers()
+    def log_message(self, *a): pass
+HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+PY
+WP=18862
+python3 "$DIR/hook.py" $WP "$DIR/hook.log" &
+sleep 0.3
+out=$(post $S /api/channels/create "{\"kind\":\"webhook\",\"name\":\"hook\",\"config\":{\"url\":\"http://127.0.0.1:$WP/moat\",\"secret\":\"s3cr3t\"}}")
+case "$out" in *reauth_required*) ok "채널 추가는 패스키 재확인 필요" ;; *) bad "채널 재확인 ($out)";; esac
+out=$(post $F /api/channels/create '{"kind":"discord","config":{"url":"https://evil.example/api/webhooks/1/a"}}')
+case "$out" in *error*) ok "Discord가 아닌 주소 거부" ;; *) bad "주소 검사 ($out)";; esac
+out=$(post $F /api/channels/create "{\"kind\":\"webhook\",\"name\":\"hook\",\"config\":{\"url\":\"http://127.0.0.1:$WP/moat\",\"secret\":\"s3cr3t\"}}")
+HID=$(echo "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channel"]["id"])' 2>/dev/null)
+[ -n "$HID" ] && ok "웹훅 채널 추가" || bad "웹훅 추가 ($out)"
+out=$(post $F /api/channels/create "{\"kind\":\"ntfy\",\"name\":\"phone\",\"config\":{\"server\":\"http://127.0.0.1:$WP\",\"topic\":\"moat-secret-topic\",\"token\":\"tk_x\"}}")
+NID=$(echo "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channel"]["id"])' 2>/dev/null)
+list=$(curl -s -H "Cookie: moat_session=$F" "$BASE/api/channels")
+echo "$list" | grep -q 's3cr3t\|moat-secret-topic\|tk_x' && bad "채널 목록에 비밀 노출" || ok "채널 목록은 비밀을 가림"
+out=$(post $F /api/channels/test "{\"id\":$HID}")
+case "$out" in *'"ok"'*) ok "웹훅 테스트 발송" ;; *) bad "웹훅 테스트 ($out)";; esac
+python3 - "$DIR/hook.log" <<'PY' && ok "웹훅 본문·HMAC 서명" || bad "웹훅 서명 ($(cat "$DIR/hook.log"))"
+import hashlib, hmac, json, sys
+r = [json.loads(l) for l in open(sys.argv[1]) if '"/moat"' in l][-1]
+body = json.loads(r["body"])
+assert body["source"] == "moat" and "테스트" in body["text"]
+want = "sha256=" + hmac.new(b"s3cr3t", (r["ts"] + "." + r["body"]).encode(), hashlib.sha256).hexdigest()
+assert r["sig"] == want, (r["sig"], want)
+PY
+out=$(post $F /api/channels/test "{\"id\":$NID}")
+grep -q '"/moat-secret-topic".*"auth": "Bearer tk_x".*"title": "Moat"' "$DIR/hook.log" && ok "ntfy 토픽·토큰·제목" || bad "ntfy ($out $(cat "$DIR/hook.log"))"
+out=$(post $F /api/channels/create "{\"kind\":\"webhook\",\"name\":\"broken\",\"config\":{\"url\":\"http://127.0.0.1:$WP/broken\"}}")
+BID=$(echo "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["channel"]["id"])' 2>/dev/null)
+out=$(post $F /api/channels/test "{\"id\":$BID}")
+case "$out" in *"HTTP 500"*) ok "실패한 채널은 이유 표시" ;; *) bad "실패 표시 ($out)";; esac
+post $F /api/channels/toggle "{\"id\":$NID,\"enabled\":false}" >/dev/null
+curl -s -H "Cookie: moat_session=$F" "$BASE/api/channels" | python3 -c "import json,sys; c=[x for x in json.load(sys.stdin)['channels'] if x['id']==$NID][0]; assert not c['enabled']" 2>/dev/null \
+    && ok "채널 끄기" || bad "채널 끄기"
+post $F /api/channels/delete "{\"id\":$BID}" >/dev/null
+[ "$(sqlite3 "$DIR/hub.db" "SELECT count(*) FROM notify_channels")" = 2 ] && ok "채널 삭제" || bad "채널 삭제"
+
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

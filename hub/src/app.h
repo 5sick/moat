@@ -57,6 +57,7 @@ class HubApp {
     void ingestPortmap(std::int64_t nodeId, const Json::Value& status);
     Json::Value portmapJson(std::int64_t nodeId);
     void registerPortmapRoutes();
+    void registerChannelRoutes();
     // Agent 인벤토리에서 메시 주소가 바뀌면 저장하고 신뢰 프록시 목록을 갱신.
     void updateMeshAddress(std::int64_t nodeId, const std::string& address);
     void refreshEdgeAddresses();

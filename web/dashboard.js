@@ -819,7 +819,80 @@ async function saveSettings(body, okMsg) {
   } catch (e) { show(e.message); }
 }
 
+// ---------- 알림 채널 ----------
+const CH_HELP = {
+  ntfy: '휴대폰에 ntfy 앱을 설치하고 이 토픽을 구독하세요. 공개 서버(ntfy.sh)에서는 토픽 이름이 곧 비밀번호이니 추측하기 어렵게 두세요.',
+  discord: 'Discord 채널 설정 → 연동 → 웹후크 → 새 웹후크 → 웹후크 URL 복사.',
+  slack: 'Slack 앱 디렉터리 → Incoming Webhooks → 채널 선택 → Webhook URL 복사.',
+  webhook: 'Moat가 {"source":"moat","text":…,"time":…}를 POST합니다. 서명 비밀값을 넣으면 X-Moat-Signature: sha256=HMAC(비밀값, "시각.본문")와 X-Moat-Timestamp 헤더를 붙입니다.',
+};
+const CH_KIND = { ntfy: 'ntfy', discord: 'Discord', slack: 'Slack', webhook: '웹훅' };
+
+function randomTopic() {
+  const a = new Uint8Array(12);
+  crypto.getRandomValues(a);
+  return `moat-${[...a].map((x) => 'abcdefghijkmnpqrstuvwxyz23456789'[x % 32]).join('')}`;
+}
+
+function syncChannelForm() {
+  const k = $('ch-kind').value;
+  $('ch-ntfy-box').hidden = k !== 'ntfy';
+  $('ch-url-box').hidden = k === 'ntfy';
+  $('ch-secret-box').hidden = k !== 'webhook';
+  $('ch-help').textContent = CH_HELP[k];
+  if (k === 'ntfy' && !$('ch-topic').value) $('ch-topic').value = randomTopic();
+}
+
+function channelRow(c) {
+  const on = el('input', { type: 'checkbox' });
+  on.checked = c.enabled;
+  on.addEventListener('change', async () => {
+    try { await withReauth(() => api('/api/channels/toggle', { id: c.id, enabled: on.checked })); } catch (e) { on.checked = !on.checked; show(e.message); }
+  });
+  const test = el('button', { class: 'small', type: 'button', text: '테스트 발송' });
+  test.addEventListener('click', async () => {
+    try { await api('/api/channels/test', { id: c.id }); show('테스트 알림을 보냈습니다.', 'ok'); } catch (e) { show(e.message); }
+  });
+  const del = el('button', { class: 'small danger', type: 'button', text: '삭제' });
+  del.addEventListener('click', async () => {
+    if (!confirm(`'${c.name}' 알림 채널을 삭제할까요?`)) return;
+    try { await withReauth(() => api('/api/channels/delete', { id: c.id })); await loadChannels(); show('삭제했습니다.', 'ok'); } catch (e) { show(e.message); }
+  });
+  return el('li', {}, [el('div', { class: 'li-row' }, [
+    el('div', {}, [el('strong', { text: c.name }), ' ', el('span', { class: 'tag', text: CH_KIND[c.kind] || c.kind }),
+      el('div', { class: 'meta', text: c.target })]),
+    el('div', { class: 'row' }, [el('label', { class: 'check' }, [on, '켬']), test, del]),
+  ])]);
+}
+
+async function loadChannels() {
+  const { channels } = await api('/api/channels');
+  $('channels').replaceChildren(...(channels.length ? channels.map(channelRow)
+    : [el('li', { class: 'none', text: '추가한 채널이 없습니다.' })]));
+}
+
+function initChannels() {
+  $('ch-kind').addEventListener('change', syncChannelForm);
+  $('ch-add').addEventListener('toggle', syncChannelForm);
+  $('ch-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const kind = $('ch-kind').value;
+    const config = kind === 'ntfy'
+      ? { server: $('ch-server').value.trim(), topic: $('ch-topic').value.trim(), token: $('ch-token').value.trim() }
+      : { url: $('ch-url').value.trim(), secret: $('ch-secret').value.trim() };
+    try {
+      await withReauth(() => api('/api/channels/create', { kind, name: $('ch-name').value.trim(), config }));
+      for (const id of ['ch-name', 'ch-server', 'ch-topic', 'ch-token', 'ch-url', 'ch-secret']) $(id).value = '';
+      $('ch-add').open = false;
+      await loadChannels();
+      show('알림 채널을 추가했습니다. "테스트 발송"으로 확인하세요.', 'ok');
+    } catch (e) { show(e.message); }
+  });
+  loadChannels().catch(() => {});
+}
+
 async function initSettings() {
+  initChannels();
   await loadSettings().catch((e) => {
     if (e.status === 401) location.href = `/login?rd=${encodeURIComponent(location.pathname)}`;
     else show(e.message);

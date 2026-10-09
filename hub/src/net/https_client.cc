@@ -70,8 +70,10 @@ bool httpsSupported() {
     return info && (info->features & CURL_VERSION_SSL) != 0;
 }
 
-HttpResult httpFetch(const std::string& url, const std::optional<std::string>& formBody,
-                     long timeoutSeconds, bool insecure) {
+namespace {
+
+HttpResult perform(const std::string& url, const std::optional<std::string>& body,
+                   const std::vector<std::string>& headers, long timeoutSeconds, bool insecure) {
     HttpResult res;
     CURL* h = curl_easy_init();
     if (!h) {
@@ -93,10 +95,15 @@ HttpResult httpFetch(const std::string& url, const std::optional<std::string>& f
     curl_easy_setopt(h, CURLOPT_WRITEDATA, &res.body);
     curl_easy_setopt(h, CURLOPT_HEADERFUNCTION, onHeader);
     curl_easy_setopt(h, CURLOPT_HEADERDATA, &res);
-    if (formBody) {
+    struct curl_slist* list = nullptr;
+    for (const auto& hd : headers)
+        list = curl_slist_append(list, hd.c_str());
+    if (list)
+        curl_easy_setopt(h, CURLOPT_HTTPHEADER, list);
+    if (body) {
         curl_easy_setopt(h, CURLOPT_POST, 1L);
-        curl_easy_setopt(h, CURLOPT_POSTFIELDS, formBody->c_str());
-        curl_easy_setopt(h, CURLOPT_POSTFIELDSIZE, static_cast<long>(formBody->size()));
+        curl_easy_setopt(h, CURLOPT_POSTFIELDS, body->c_str());
+        curl_easy_setopt(h, CURLOPT_POSTFIELDSIZE, static_cast<long>(body->size()));
     }
     const auto start = std::chrono::steady_clock::now();
     const CURLcode rc = curl_easy_perform(h);
@@ -108,8 +115,36 @@ HttpResult httpFetch(const std::string& url, const std::optional<std::string>& f
     } else {
         res.error = curl_easy_strerror(rc);
     }
+    curl_slist_free_all(list);
     curl_easy_cleanup(h);
     return res;
+}
+
+} // namespace
+
+HttpResult httpFetch(const std::string& url, const std::optional<std::string>& formBody,
+                     long timeoutSeconds, bool insecure) {
+    return perform(url, formBody, {}, timeoutSeconds, insecure);
+}
+
+HttpResult httpPost(const HttpPost& req, long timeoutSeconds) {
+    std::vector<std::string> headers{"Content-Type: " + req.contentType};
+    for (const auto& [k, v] : req.headers) {
+        // 헤더 주입 방지: 줄바꿈이 든 값은 보내지 않는다
+        if (k.find_first_of("\r\n:") != std::string::npos ||
+            v.find_first_of("\r\n") != std::string::npos)
+            continue;
+        headers.push_back(k + ": " + v);
+    }
+    return perform(req.url, req.body, headers, timeoutSeconds, false);
+}
+
+void httpPostAsync(HttpPost req, std::function<void(HttpResult)> cb, long timeoutSeconds) {
+    std::thread([req = std::move(req), cb = std::move(cb), timeoutSeconds]() mutable {
+        auto res = httpPost(req, timeoutSeconds);
+        drogon::app().getLoop()->queueInLoop(
+            [cb = std::move(cb), res = std::move(res)]() mutable { cb(std::move(res)); });
+    }).detach();
 }
 
 void httpFetchAsync(std::string url, std::optional<std::string> formBody,

@@ -268,6 +268,7 @@ void HubApp::registerRoutes() {
     registerSecurityRoutes();
     registerHomeRoutes();
     registerPortmapRoutes();
+    registerChannelRoutes();
 
     app.registerHandler("/healthz",
                         [](const HttpRequestPtr&, Callback&& cb) {

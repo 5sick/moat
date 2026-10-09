@@ -9,6 +9,7 @@
 #include "store/invites.h"
 #include "store/repo.h"
 #include "util/encoding.h"
+#include "util/i18n.h"
 #include "version.h"
 
 #include <drogon/drogon.h>
@@ -143,8 +144,9 @@ void HubApp::registerSettingsRoutes() {
             const std::string url =
                 cfg_.telegramApiUrl + "/bot" + c.telegramBotToken + "/sendMessage";
             const std::string form =
-                "chat_id=" + urlEncode(c.telegramChatId) +
-                "&text=" + urlEncode("[Moat] 테스트 알림입니다. 알림이 잘 연결되었습니다.");
+                "chat_id=" + urlEncode(c.telegramChatId) + "&text=" +
+                urlEncode(i18n::translate("[Moat] 테스트 알림입니다. 알림이 잘 연결되었습니다.",
+                                          language()));
             httpFetchAsync(url, form, [cb = std::move(cb)](HttpResult r) {
                 if (r.ok && r.status == 200) {
                     Json::Value v;

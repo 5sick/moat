@@ -3,6 +3,8 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace moat {
 
@@ -24,6 +26,16 @@ struct HttpResult {
 // insecure=true는 인증서 검증을 끈다 (자체 서명 업스트림의 상태 확인 전용).
 HttpResult httpFetch(const std::string& url, const std::optional<std::string>& formBody,
                      long timeoutSeconds = 10, bool insecure = false);
+
+// 본문·헤더를 직접 정하는 POST (알림 채널: JSON 웹훅, ntfy 등).
+struct HttpPost {
+    std::string url;
+    std::string body;
+    std::string contentType = "application/json";
+    std::vector<std::pair<std::string, std::string>> headers;
+};
+HttpResult httpPost(const HttpPost& req, long timeoutSeconds = 10);
+void httpPostAsync(HttpPost req, std::function<void(HttpResult)> cb, long timeoutSeconds = 10);
 
 // 별도 스레드에서 httpFetch 후 Drogon 메인 루프에서 콜백을 부른다.
 void httpFetchAsync(std::string url, std::optional<std::string> formBody,

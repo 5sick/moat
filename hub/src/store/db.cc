@@ -254,6 +254,17 @@ const std::vector<const char*> kMigrations = {
     R"sql(
     ALTER TABLE nodes ADD COLUMN port_forward INTEGER NOT NULL DEFAULT 0;
     )sql",
+    // v13: 알림 채널 (ntfy, Discord, Slack, 웹훅). config는 JSON (주소·토큰 등 비밀 포함).
+    R"sql(
+    CREATE TABLE notify_channels (
+        id         INTEGER PRIMARY KEY,
+        kind       TEXT NOT NULL,
+        name       TEXT NOT NULL,
+        config     TEXT NOT NULL DEFAULT '{}',
+        enabled    INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+    );
+    )sql",
 };
 
 [[noreturn]] void fail(sqlite3* db, const std::string& what) {

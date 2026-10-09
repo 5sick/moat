@@ -2,6 +2,7 @@
 
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 #include <openssl/rand.h>
 
 #include <stdexcept>
@@ -48,6 +49,15 @@ bool ed25519Verify(const Bytes& publicKey, std::string_view message, const Bytes
 
 bool constantTimeEquals(const Bytes& a, const Bytes& b) {
     return a.size() == b.size() && CRYPTO_memcmp(a.data(), b.data(), a.size()) == 0;
+}
+
+Bytes hmacSha256(std::string_view key, std::string_view message) {
+    unsigned char out[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    if (!HMAC(EVP_sha256(), key.data(), static_cast<int>(key.size()),
+              reinterpret_cast<const unsigned char*>(message.data()), message.size(), out, &len))
+        throw std::runtime_error("HMAC 실패");
+    return Bytes(out, out + len);
 }
 
 } // namespace moat

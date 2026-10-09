@@ -4,13 +4,13 @@
 set -u
 export MOAT_LANG=ko # CLI 출력 언어 고정 (영어 확인은 따로)
 HUB=${1:-build/hub/moat-hub}
-HP=18870; TP=18871
+HP=18870; TP=18871; WP=18872
 BASE="http://localhost:$HP"
 DIR=$(mktemp -d); trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$DIR"' EXIT
 PASS=0; FAIL=0
 ok()   { echo "  ok   $1"; PASS=$((PASS+1)); }
 bad()  { echo "  FAIL $1"; FAIL=$((FAIL+1)); }
-for p in $HP $TP; do ss -ltn | grep -q ":$p " && { echo "포트 $p 사용 중"; exit 1; }; done
+for p in $HP $TP $WP; do ss -ltn | grep -q ":$p " && { echo "포트 $p 사용 중"; exit 1; }; done
 
 cat > "$DIR/tg.py" <<'PY'
 import sys, urllib.parse
@@ -24,6 +24,18 @@ class H(BaseHTTPRequestHandler):
 HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
 PY
 python3 "$DIR/tg.py" $TP "$DIR/tg.log" &
+# 알림 채널(웹훅)로도 같은 알림이 가는지
+cat > "$DIR/hook.py" <<'PY'
+import sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class H(BaseHTTPRequestHandler):
+    def do_POST(self):
+        open(sys.argv[2], "a").write(self.rfile.read(int(self.headers.get("Content-Length", 0))).decode() + "\n")
+        self.send_response(204); self.end_headers()
+    def log_message(self, *a): pass
+HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+PY
+python3 "$DIR/hook.py" $WP "$DIR/hook.log" &
 cat > "$DIR/hub.json" <<JSON
 {"public_url":"$BASE","cookie_domain":"localhost","database_path":"$DIR/hub.db","listen_port":$HP,
  "allowed_emails":["me@example.com"],
@@ -39,6 +51,8 @@ import hashlib, sqlite3, sys, time
 db = sqlite3.connect(sys.argv[1]); now = int(time.time())
 db.execute("INSERT INTO users (id, email, created_at, allowed) VALUES (1, 'me@example.com', ?, 1)", (now,))
 db.execute("INSERT INTO users (id, email, created_at, allowed) VALUES (2, 'gone@example.com', ?, 0)", (now,))
+db.execute("INSERT INTO notify_channels (kind, name, config, enabled, created_at) VALUES ('webhook', 'hook', ?, 1, ?)",
+           ('{"url":"http://127.0.0.1:18872/h"}', now))
 for tok, re in (("rec-fresh-session-0123456789abcdef", now), ("rec-stale-session-0123456789abcdef", now - 3600)):
     db.execute("INSERT INTO sessions VALUES (?, 1, 'passkey', ?, ?, ?, ?, ?, '', '', '')",
                (hashlib.sha256(tok.encode()).digest(), now, now, now + 3600, now + 7200, re))
@@ -72,6 +86,8 @@ curl -s -H "Cookie: moat_session=$SESS" "$BASE/api/sessions" | grep -q '"auth_me
 [ "$(recover "$C1")" = 401 ] && ok "같은 코드 재사용 거부" || bad "재사용"
 for _ in $(seq 30); do grep -q "복구 코드로 로그인" "$DIR/tg.log" 2>/dev/null && break; sleep 0.1; done
 grep -q "복구 코드로 로그인: me@example.com" "$DIR/tg.log" && ok "복구 로그인 알림" || bad "알림 ($(cat "$DIR/tg.log" 2>/dev/null))"
+for _ in $(seq 30); do grep -q "복구 코드로 로그인" "$DIR/hook.log" 2>/dev/null && break; sleep 0.1; done
+grep -q '"source":"moat".*복구 코드로 로그인: me@example.com' "$DIR/hook.log" && ok "같은 알림이 웹훅 채널로도" || bad "채널 알림 ($(cat "$DIR/hook.log" 2>/dev/null))"
 sqlite3 "$DIR/hub.db" "SELECT group_concat(event) FROM audit_log" | grep -q 'recovery_login' && ok "감사 로그" || bad "감사 로그"
 
 # 복구 세션은 바로 재인증된 상태 → 새 패스키 등록·코드 재발급 가능

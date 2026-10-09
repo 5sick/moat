@@ -20,6 +20,9 @@ inline Bytes sha256(std::string_view s) {
 // Ed25519 서명 검증 (RFC 8032). 공개키 32바이트, 서명 64바이트.
 bool ed25519Verify(const Bytes& publicKey, std::string_view message, const Bytes& signature);
 
+// HMAC-SHA256 (웹훅 서명용)
+Bytes hmacSha256(std::string_view key, std::string_view message);
+
 // 타이밍 공격을 피하는 비교.
 bool constantTimeEquals(const Bytes& a, const Bytes& b);
 

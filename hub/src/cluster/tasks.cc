@@ -2,6 +2,7 @@
 
 #include "app.h"
 #include "cluster/alerts.h"
+#include "cluster/channels.h"
 #include "cluster/security.h"
 #include "cluster/terminal.h"
 #include "net/https_client.h"
@@ -203,18 +204,30 @@ std::string HubApp::language() {
 
 void HubApp::notify(const std::string& text) {
     LOG_INFO << "알림: " << text;
+    const std::string msg = i18n::translate(text, language());
     const auto creds = settings_.get();
-    if (!creds.telegramEnabled())
-        return;
-    const std::string url = cfg_.telegramApiUrl + "/bot" + creds.telegramBotToken + "/sendMessage";
-    const std::string form = "chat_id=" + urlEncode(creds.telegramChatId) +
-                             "&text=" + urlEncode("[Moat] " + i18n::translate(text, language())) +
-                             "&disable_web_page_preview=true";
-    httpFetchAsync(url, form, [](HttpResult r) {
-        if (!r.ok || r.status != 200)
-            LOG_WARN << "텔레그램 발송 실패: "
-                     << (r.ok ? "HTTP " + std::to_string(r.status) : r.error);
-    });
+    if (creds.telegramEnabled()) {
+        const std::string url =
+            cfg_.telegramApiUrl + "/bot" + creds.telegramBotToken + "/sendMessage";
+        const std::string form = "chat_id=" + urlEncode(creds.telegramChatId) +
+                                 "&text=" + urlEncode("[Moat] " + msg) +
+                                 "&disable_web_page_preview=true";
+        httpFetchAsync(url, form, [](HttpResult r) {
+            if (!r.ok || r.status != 200)
+                LOG_WARN << "텔레그램 발송 실패: "
+                         << (r.ok ? "HTTP " + std::to_string(r.status) : r.error);
+        });
+    }
+    // 그 밖의 알림 채널 (ntfy, Discord, Slack, 웹훅)
+    for (const auto& c : listChannels(*db_)) {
+        if (!c.enabled)
+            continue;
+        httpPostAsync(channelRequest(c, msg, now()), [name = c.name](HttpResult r) {
+            if (!r.ok || r.status < 200 || r.status >= 300)
+                LOG_WARN << "알림 채널 발송 실패 (" << name
+                         << "): " << (r.ok ? "HTTP " + std::to_string(r.status) : r.error);
+        });
+    }
 }
 
 } // namespace moat

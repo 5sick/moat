@@ -82,6 +82,35 @@
     </div>
   </form>
 
+  <h2>알림 — 다른 채널</h2>
+  <div class="card stack">
+    <p class="meta">ntfy(휴대폰 앱), Discord, Slack, 웹훅으로도 같은 알림을 보냅니다. 여러 개를 함께 쓸 수 있습니다.</p>
+    <ul class="list" id="channels"></ul>
+    <details class="more" id="ch-add">
+      <summary>채널 추가</summary>
+      <form class="stack" id="ch-form">
+        <label class="field">종류
+          <select id="ch-kind">
+            <option value="ntfy">ntfy</option>
+            <option value="discord">Discord</option>
+            <option value="slack">Slack</option>
+            <option value="webhook">웹훅 (JSON)</option>
+          </select>
+        </label>
+        <label class="field">이름 <input id="ch-name" autocomplete="off" placeholder="예: 내 휴대폰" maxlength="40"></label>
+        <div class="stack" id="ch-ntfy-box">
+          <label class="field">서버 <input id="ch-server" autocomplete="off" placeholder="https://ntfy.sh"></label>
+          <label class="field">토픽 <input id="ch-topic" autocomplete="off" maxlength="64"></label>
+          <label class="field">접근 토큰 (선택) <input id="ch-token" autocomplete="off" placeholder="tk_…"></label>
+        </div>
+        <label class="field" id="ch-url-box">웹훅 주소 <input id="ch-url" autocomplete="off" placeholder="https://…"></label>
+        <label class="field" id="ch-secret-box">서명 비밀값 (선택) <input id="ch-secret" autocomplete="off"></label>
+        <p class="meta" id="ch-help"></p>
+        <div class="row end"><button class="primary">추가</button></div>
+      </form>
+    </details>
+  </div>
+
   <h2>Google 로그인 (선택)</h2>
   <form class="card stack" id="gg-form">
     <p class="meta">패스키만으로 충분합니다. Google 계정으로도 로그인하고 싶을 때만 설정하세요.
