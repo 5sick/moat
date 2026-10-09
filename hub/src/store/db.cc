@@ -250,6 +250,10 @@ const std::vector<const char*> kMigrations = {
     R"sql(
     ALTER TABLE sessions ADD COLUMN device_hash TEXT NOT NULL DEFAULT '';
     )sql",
+    // v12: 공유기 포트 자동 열기 (UPnP/NAT-PMP). 켜면 입구 노드의 80/443을 공유기에 요청한다.
+    R"sql(
+    ALTER TABLE nodes ADD COLUMN port_forward INTEGER NOT NULL DEFAULT 0;
+    )sql",
 };
 
 [[noreturn]] void fail(sqlite3* db, const std::string& what) {

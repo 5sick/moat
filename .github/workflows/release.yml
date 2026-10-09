@@ -57,7 +57,8 @@ jobs:
       - name: 산출물 정리·체크섬
         run: |
           mkdir rel
-          cp art/hub-amd64/* art/hub-arm64/* rel/
+          cp art/hub-amd64/moat-hub-linux-amd64 art/hub-arm64/moat-hub-linux-arm64 rel/
+          cp art/hub-amd64/THIRD_PARTY_LICENSES-hub.txt rel/  # 두 아키텍처가 같은 내용
           cp art/agent/moat-agent-linux-* art/agent/VERSION art/agent/THIRD_PARTY_LICENSES-agent.txt rel/
           cp LICENSE rel/LICENSE.txt
           cp deploy/install.sh rel/install.sh 2>/dev/null || true

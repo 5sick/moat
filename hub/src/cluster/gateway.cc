@@ -152,6 +152,8 @@ void AgentGateway::dispatch(const WebSocketConnectionPtr& conn, Ctx& ctx, const 
         return hub_.ingestSecurityEvents(ctx.nodeId, msg);
     if (kind == "service_health")
         return hub_.ingestServiceHealth(ctx.nodeId, msg);
+    if (kind == "portmap_status")
+        return hub_.ingestPortmap(ctx.nodeId, msg["status"]);
     if (kind == "expose_req") {
         Json::Value res = hub_.handleExpose(ctx.nodeId, msg);
         // CLI 언어로 (moat-agent expose를 실행한 터미널의 LANG)

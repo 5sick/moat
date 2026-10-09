@@ -37,6 +37,8 @@ type System struct {
 	CPUs     int    `json:"cpus"`
 	Hostname string `json:"hostname"`
 	Docker   bool   `json:"docker"`
+	// 클라우드 (oci, aws, gcp, azure, hetzner, digitalocean, vultr, linode, scaleway), 아니면 빈 값
+	Cloud string `json:"cloud,omitempty"`
 	// 물리·WireGuard 인터페이스 주소 (Hub가 메시 주소·업스트림을 정할 때 사용)
 	Addresses []Address `json:"addresses"`
 }
@@ -112,8 +114,42 @@ func (c *InventoryCollector) Collect(ctx context.Context) Inventory {
 	return inv
 }
 
+// DMIDir는 시험에서 바꾼다.
+var DMIDir = "/sys/class/dmi/id"
+
+// DetectCloud는 DMI 정보로 클라우드 업체를 알아낸다 (방화벽 안내용).
+func DetectCloud(dir string) string {
+	read := func(f string) string {
+		b, _ := os.ReadFile(filepath.Join(dir, f))
+		return strings.ToLower(strings.TrimSpace(string(b)))
+	}
+	vendor, product, bios, tag := read("sys_vendor"), read("product_name"), read("bios_vendor"), read("chassis_asset_tag")
+	all := vendor + " " + product + " " + bios + " " + tag
+	switch {
+	case strings.Contains(tag, "oraclecloud"):
+		return "oci"
+	case strings.Contains(all, "amazon ec2"):
+		return "aws"
+	case strings.Contains(product, "google compute engine") || vendor == "google":
+		return "gcp"
+	case vendor == "microsoft corporation" && strings.Contains(tag, "7783-7084-3265-9085-8269-3286-77"):
+		return "azure" // Azure VM의 고정 자산 태그
+	case strings.Contains(vendor, "hetzner"):
+		return "hetzner"
+	case strings.Contains(vendor, "digitalocean"):
+		return "digitalocean"
+	case strings.Contains(vendor, "vultr"):
+		return "vultr"
+	case strings.Contains(vendor, "linode") || strings.Contains(vendor, "akamai"):
+		return "linode"
+	case strings.Contains(vendor, "scaleway"):
+		return "scaleway"
+	}
+	return ""
+}
+
 func readSystem(proc string) System {
-	s := System{Arch: runtime.GOARCH, CPUs: runtime.NumCPU()}
+	s := System{Arch: runtime.GOARCH, CPUs: runtime.NumCPU(), Cloud: DetectCloud(DMIDir)}
 	s.Hostname, _ = os.Hostname()
 	if b, err := os.ReadFile(filepath.Join(proc, "sys/kernel/osrelease")); err == nil {
 		s.Kernel = strings.TrimSpace(string(b))

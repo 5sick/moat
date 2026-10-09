@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -89,5 +90,30 @@ func TestDockerContainersViaFakeSocket(t *testing.T) {
 	if len(b) != 3 || b[0] != (Binding{IP: "0.0.0.0", Port: 8080, PrivatePort: 80}) || b[1].IP != "::" ||
 		b[2] != (Binding{IP: "127.0.0.1", Port: 8081, PrivatePort: 81}) {
 		t.Fatalf("bindings %+v", b)
+	}
+}
+
+func TestDetectCloud(t *testing.T) {
+	cases := []struct {
+		files map[string]string
+		want  string
+	}{
+		{map[string]string{"sys_vendor": "QEMU", "chassis_asset_tag": "OracleCloud.com"}, "oci"},
+		{map[string]string{"sys_vendor": "Amazon EC2", "product_name": "t3.micro"}, "aws"},
+		{map[string]string{"sys_vendor": "Google", "product_name": "Google Compute Engine"}, "gcp"},
+		{map[string]string{"sys_vendor": "Hetzner", "product_name": "vServer"}, "hetzner"},
+		{map[string]string{"sys_vendor": "Microsoft Corporation", "chassis_asset_tag": "7783-7084-3265-9085-8269-3286-77"}, "azure"},
+		{map[string]string{"sys_vendor": "Microsoft Corporation", "product_name": "Virtual Machine"}, ""}, // 집의 Hyper-V
+		{map[string]string{"sys_vendor": "ASUSTeK COMPUTER INC."}, ""},
+		{map[string]string{}, ""},
+	}
+	for _, c := range cases {
+		d := t.TempDir()
+		for k, v := range c.files {
+			os.WriteFile(filepath.Join(d, k), []byte(v+"\n"), 0o644)
+		}
+		if got := DetectCloud(d); got != c.want {
+			t.Fatalf("%v → %q, want %q", c.files, got, c.want)
+		}
 	}
 }

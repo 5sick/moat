@@ -60,6 +60,8 @@ void HubApp::registerNodeRoutes() {
         v["connected"] = live_.connected(n.id);
         v["edge"] = n.edge;
         v["mesh_address"] = n.meshAddress;
+        v["port_forward"] = n.portForward;
+        v["portmap"] = portmapJson(n.id);
         auto s = live_.latest(n.id);
         v["latest"] = s ? sampleToJson(*s) : Json::Value();
         v["alerts"] = Json::Value(Json::arrayValue);

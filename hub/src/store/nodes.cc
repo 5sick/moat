@@ -28,12 +28,13 @@ Node readNode(Statement& s) {
     n.edge = s.int64(11) != 0;
     n.meshAddress = s.text(12);
     n.connectMode = s.text(13);
+    n.portForward = s.int64(14) != 0;
     return n;
 }
 
 constexpr const char* kNodeCols =
     "id, name, pubkey, hostname, os, arch, agent_version, created_at, "
-    "last_seen_at, last_ip, inventory, edge, mesh_address, connect_mode";
+    "last_seen_at, last_ip, inventory, edge, mesh_address, connect_mode, port_forward";
 
 bool nameTaken(Database& db, const std::string& name) {
     Statement s(db, "SELECT 1 FROM nodes WHERE name = ?");
@@ -171,6 +172,12 @@ bool setNodeConnectMode(Database& db, std::int64_t id, const std::string& mode) 
         return false;
     Statement s(db, "UPDATE nodes SET connect_mode = ? WHERE id = ?");
     s.bind(1, mode).bind(2, id).run();
+    return db.changes() > 0;
+}
+
+bool setNodePortForward(Database& db, std::int64_t id, bool on) {
+    Statement s(db, "UPDATE nodes SET port_forward = ? WHERE id = ?");
+    s.bind(1, on ? 1 : 0).bind(2, id).run();
     return db.changes() > 0;
 }
 

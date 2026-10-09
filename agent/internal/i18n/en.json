@@ -95,5 +95,18 @@
  "등록 완료: %s (id %d)\n": "Registered: %s (id %d)\n",
  "Hub에 연결되어 있지 않습니다": "Not connected to the Hub",
  "Hub 응답 형식 오류": "Invalid response from the Hub",
- "Hub 응답 시간 초과": "The Hub didn't respond in time"
+ "Hub 응답 시간 초과": "The Hub didn't respond in time",
+ "\n  이 서버는 공유기 뒤(사설 IP)에 있습니다.": "\n  This server is behind a router (private IP).",
+ "공유기에서 80·443을 자동으로 열까요? (UPnP/NAT-PMP, 나중에 서버 화면에서 끌 수 있음)": "Open 80 and 443 on the router automatically? (UPnP/NAT-PMP, can be turned off later on the server page)",
+ "    %s: %s": "    %s: %s",
+ "    공유기 포트 자동 열기 결과는 Moat → 서버 → 이 서버의 '외부에서 접속'에서 볼 수 있습니다. 공유기가 지원하지 않으면 공유기 관리 화면에서 TCP 80·443을 이 서버로 포트포워딩하세요.": "    The router port result is shown in Moat → Servers → this server → 'Access from outside'. If the router doesn't support it, forward TCP 80 and 443 to this server in the router's admin page.",
+ "OCI 콘솔 → 네트워킹 → 가상 클라우드 네트워크 → 서브넷의 보안 목록 → 수신 규칙 추가: 소스 0.0.0.0/0, TCP 80과 443.": "OCI console → Networking → Virtual cloud networks → the subnet's security list → Add ingress rules: source 0.0.0.0/0, TCP 80 and 443.",
+ "EC2 콘솔 → 인스턴스 → 보안 → 보안 그룹 → 인바운드 규칙 편집: HTTP(80)·HTTPS(443), 소스 0.0.0.0/0.": "EC2 console → Instances → Security → Security groups → Edit inbound rules: HTTP (80) and HTTPS (443), source 0.0.0.0/0.",
+ "VPC 네트워크 → 방화벽 → 방화벽 규칙 만들기: 수신, 이 VM, tcp:80,443, 소스 0.0.0.0/0 (또는 VM 수정에서 HTTP·HTTPS 트래픽 허용).": "VPC network → Firewall → Create firewall rule: ingress, this VM, tcp:80,443, source 0.0.0.0/0 (or tick Allow HTTP/HTTPS traffic when editing the VM).",
+ "가상 머신 → 네트워킹 → 인바운드 포트 규칙 추가: 80, 443.": "Virtual machine → Networking → Add inbound port rule: 80, 443.",
+ "Cloud 콘솔 → 방화벽(쓰는 경우) → 인바운드 규칙: TCP 80, 443.": "Cloud console → Firewalls (if you use one) → Inbound rules: TCP 80, 443.",
+ "Networking → Firewalls(쓰는 경우) → Inbound Rules: HTTP, HTTPS.": "Networking → Firewalls (if you use one) → Inbound Rules: HTTP, HTTPS.",
+ "Network → Firewall(쓰는 경우) → TCP 80, 443 허용.": "Network → Firewall (if you use one) → allow TCP 80, 443.",
+ "Cloud Firewalls(쓰는 경우) → Inbound: TCP 80, 443 허용.": "Cloud Firewalls (if you use one) → Inbound: allow TCP 80, 443.",
+ "Security Groups → Inbound: TCP 80, 443 허용.": "Security Groups → Inbound: allow TCP 80, 443."
 }

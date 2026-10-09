@@ -38,7 +38,9 @@ And the everyday parts:
 - **Running apps → publish.** Moat lists the containers and open ports on all your servers; click
   *Publish* and it becomes `https://app.your-domain` behind your login.
 - **Servers behind NAT, no port forwarding.** Every server's agent dials out to the entry over 443,
-  so only the one server with a public IP needs ports 80/443 open.
+  so only the one server with a public IP needs ports 80/443 open. On a home server Moat can open
+  80/443 on your router for you (UPnP / NAT-PMP), tells you when you're behind carrier NAT, and on
+  cloud VMs shows where to open the provider's firewall.
 - **Monitoring:** CPU, memory, disk, network, failed systemd units, containers, WireGuard peers,
   service health checks, Telegram alerts.
 - **Home dashboard** with app icons (a Homepage-style start page).

@@ -13,11 +13,13 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -30,6 +32,7 @@ import (
 	"github.com/5sick/moat/agent/internal/health"
 	"github.com/5sick/moat/agent/internal/i18n"
 	"github.com/5sick/moat/agent/internal/install"
+	"github.com/5sick/moat/agent/internal/portmap"
 	"github.com/5sick/moat/agent/internal/security"
 	"github.com/5sick/moat/agent/internal/service"
 	"github.com/5sick/moat/agent/internal/term"
@@ -370,6 +373,17 @@ func run(paths config.Paths, log *slog.Logger) error {
 	// 터널: 이 서버의 서비스를 입구가 쓸 수 있게 (직통 길이 없어도). Hub가 주소·허용 목록을 보낸다.
 	tun := tunnel.NewClient(c.NodeID, key, log.With("part", "tunnel"))
 	go tun.Run(ctx)
+
+	// 공유기 포트 자동 열기 (Hub가 원하는 포트만, 허용 목록 안에서)
+	var lastPortmap atomic.Value // portmap.Status
+	pm := portmap.NewManager(log.With("part", "portmap"), func(s portmap.Status) {
+		lastPortmap.Store(s)
+		_ = hub.send(map[string]any{"type": "portmap_status", "status": s})
+	})
+	if a := os.Getenv("MOAT_TEST_NATPMP"); a != "" { // 시험용: 가짜 공유기
+		pm.Opts = portmap.Options{Gateway: net.ParseIP("127.0.0.1"), NATPMP: a, SSDP: "127.0.0.1:9", Timeout: time.Second}
+	}
+	go pm.Run(ctx)
 	// 서비스 상태 확인: 1분마다 로컬에서 확인해 Hub에 보고
 	var checksMu sync.Mutex
 	var checks []health.Check
@@ -397,6 +411,9 @@ func run(paths config.Paths, log *slog.Logger) error {
 		Connected: func(send func(v any) error) {
 			terms.SetSender(send)
 			hub.set(send)
+			if s, ok := lastPortmap.Load().(portmap.Status); ok {
+				_ = send(map[string]any{"type": "portmap_status", "status": s})
+			}
 		},
 		Disconnected: func() {
 			hub.set(nil)
@@ -426,6 +443,15 @@ func run(paths config.Paths, log *slog.Logger) error {
 					checksMu.Lock()
 					checks = tm.Checks
 					checksMu.Unlock()
+				}
+				return
+			}
+			if typ == "portmap" {
+				var pmm struct {
+					Mappings []portmap.Mapping `json:"mappings"`
+				}
+				if json.Unmarshal(raw, &pmm) == nil {
+					pm.Set(pmm.Mappings)
 				}
 				return
 			}

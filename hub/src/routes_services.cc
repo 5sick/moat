@@ -140,6 +140,7 @@ void HubApp::pushRoutes(std::int64_t nodeId) {
             gateway_->send(n.id, routes);
         }
         gateway_->send(n.id, buildTunnelConfig(n)); // 모든 노드: 터널 주소·허용 목록·상태 확인 대상
+        gateway_->send(n.id, buildPortmap(n));      // 공유기 포트 (입구이고 켰을 때만 80/443)
     }
 }
 

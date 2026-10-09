@@ -22,7 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/5sick/moat/agent/internal/collect"
 	"github.com/5sick/moat/agent/internal/i18n"
+	"github.com/5sick/moat/agent/internal/portmap"
 )
 
 // Options는 설치 선택이다. 비어 있는 값은 대화형으로 묻는다 (Yes면 추천값).
@@ -41,11 +43,13 @@ type Options struct {
 const DefaultRelease = "https://github.com/5sick/moat/releases/latest/download"
 
 type Installer struct {
-	Opt  Options
-	In   *bufio.Reader
-	Out  io.Writer
-	arch string
-	tmp  string
+	Opt         Options
+	cloud       string // 클라우드 업체 (방화벽 안내)
+	portForward bool   // 공유기 포트 자동 열기를 켰는지
+	In          *bufio.Reader
+	Out         io.Writer
+	arch        string
+	tmp         string
 }
 
 func New(opt Options, out io.Writer) *Installer {
@@ -532,6 +536,17 @@ func (s *Installer) installAgent(ctx context.Context) error {
 		if _, err := run("/usr/local/bin/moat-hub", "node-set", "--name", name, "--edge", "on"); err != nil {
 			return err
 		}
+		// 집 공유기 뒤라면 80/443 포트포워딩을 공유기에 요청할지 (클라우드는 방화벽 안내만)
+		s.cloud = collect.DetectCloud(collect.DMIDir)
+		if s.cloud == "" && behindNAT() && !s.Opt.TestPlain {
+			s.say("\n  이 서버는 공유기 뒤(사설 IP)에 있습니다.")
+			if s.yesNo("공유기에서 80·443을 자동으로 열까요? (UPnP/NAT-PMP, 나중에 서버 화면에서 끌 수 있음)", true) {
+				if _, err := run("/usr/local/bin/moat-hub", "node-set", "--name", name, "--port-forward", "on"); err != nil {
+					return err
+				}
+				s.portForward = true
+			}
+		}
 	}
 	if _, err := run(agent, "install-service"); err != nil {
 		return err
@@ -566,6 +581,11 @@ func (s *Installer) finish(ctx context.Context) error {
 		s.say("  ! 아직 접속되지 않습니다: %v", err)
 		s.say("    DNS에서 %s 와 *.%s 가 이 서버의 공인 IP를 가리키는지, 방화벽(클라우드 보안 그룹)에서 80·443이 열려 있는지 확인하세요.",
 			s.Opt.Domain, parentDomain(s.Opt.Domain))
+		if g, ok := cloudGuide[s.cloud]; ok {
+			s.say("    %s: %s", g[0], i18n.T(g[1]))
+		} else if s.portForward {
+			s.say("    공유기 포트 자동 열기 결과는 Moat → 서버 → 이 서버의 '외부에서 접속'에서 볼 수 있습니다. 공유기가 지원하지 않으면 공유기 관리 화면에서 TCP 80·443을 이 서버로 포트포워딩하세요.")
+		}
 	} else {
 		s.say("  접속 확인 ✓")
 	}
@@ -613,4 +633,27 @@ func parentDomain(d string) string {
 		return d[i+1:]
 	}
 	return d
+}
+
+// behindNAT: 기본 경로로 나가는 이 서버의 주소가 사설 IP인지 (공유기 뒤).
+func behindNAT() bool {
+	gw, err := portmap.DefaultGateway("/proc/net/route")
+	if err != nil {
+		return false
+	}
+	ip, err := portmap.LocalIPFor(net.JoinHostPort(gw.String(), "5351"))
+	return err == nil && ip.IsPrivate()
+}
+
+// cloudGuide: 클라우드 방화벽에서 80·443을 여는 곳 (웹 화면의 안내와 같은 문구)
+var cloudGuide = map[string][2]string{
+	"oci":          {"Oracle Cloud", "OCI 콘솔 → 네트워킹 → 가상 클라우드 네트워크 → 서브넷의 보안 목록 → 수신 규칙 추가: 소스 0.0.0.0/0, TCP 80과 443."},
+	"aws":          {"AWS", "EC2 콘솔 → 인스턴스 → 보안 → 보안 그룹 → 인바운드 규칙 편집: HTTP(80)·HTTPS(443), 소스 0.0.0.0/0."},
+	"gcp":          {"Google Cloud", "VPC 네트워크 → 방화벽 → 방화벽 규칙 만들기: 수신, 이 VM, tcp:80,443, 소스 0.0.0.0/0 (또는 VM 수정에서 HTTP·HTTPS 트래픽 허용)."},
+	"azure":        {"Azure", "가상 머신 → 네트워킹 → 인바운드 포트 규칙 추가: 80, 443."},
+	"hetzner":      {"Hetzner", "Cloud 콘솔 → 방화벽(쓰는 경우) → 인바운드 규칙: TCP 80, 443."},
+	"digitalocean": {"DigitalOcean", "Networking → Firewalls(쓰는 경우) → Inbound Rules: HTTP, HTTPS."},
+	"vultr":        {"Vultr", "Network → Firewall(쓰는 경우) → TCP 80, 443 허용."},
+	"linode":       {"Linode/Akamai", "Cloud Firewalls(쓰는 경우) → Inbound: TCP 80, 443 허용."},
+	"scaleway":     {"Scaleway", "Security Groups → Inbound: TCP 80, 443 허용."},
 }

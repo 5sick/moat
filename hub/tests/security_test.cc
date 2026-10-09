@@ -46,7 +46,8 @@ TEST(security_classification) {
     CHECK_EQ(c.severity, "warn");
     // 인자가 달라도 같은 지문
     auto c2 = classifySecurity(
-        1, ev("sudo", F({{"user", "monitor"}, {"command", "/usr/local/bin/health-check disk"}}), ""),
+        1,
+        ev("sudo", F({{"user", "monitor"}, {"command", "/usr/local/bin/health-check disk"}}), ""),
         admins);
     CHECK_EQ(c.fingerprint, c2.fingerprint);
     CHECK_EQ(

@@ -22,6 +22,7 @@ struct Node {
     bool edge = false;
     std::string meshAddress;
     std::string connectMode = "auto"; // auto | direct | tunnel
+    bool portForward = false;         // 공유기 포트 자동 열기
 };
 
 // 1분 평균 메트릭 한 줄.
@@ -62,6 +63,7 @@ void touchNode(Database& db, std::int64_t id, const std::string& ip,
 void saveInventory(Database& db, std::int64_t id, const std::string& json);
 bool setNodeEdge(Database& db, std::int64_t id, bool edge);
 bool setNodeConnectMode(Database& db, std::int64_t id, const std::string& mode);
+bool setNodePortForward(Database& db, std::int64_t id, bool on);
 void setMeshAddress(Database& db, std::int64_t id, const std::string& address);
 // 인벤토리의 인터페이스 주소에서 메시 주소를 고른다: wg* 인터페이스의 IPv4 → 없으면 첫 사설 IPv4.
 std::string pickMeshAddress(const std::string& inventoryJson);

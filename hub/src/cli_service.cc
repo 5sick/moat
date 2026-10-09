@@ -116,7 +116,7 @@ int runServiceAdd(const std::vector<std::string>& args) {
 }
 
 int runNodeSet(const std::vector<std::string>& args) {
-    std::string configPath = "/etc/moat/hub.json", name, edge;
+    std::string configPath = "/etc/moat/hub.json", name, edge, portForward;
     for (std::size_t i = 0; i + 1 < args.size(); i += 2) {
         if (args[i] == "--config")
             configPath = args[i + 1];
@@ -124,9 +124,14 @@ int runNodeSet(const std::vector<std::string>& args) {
             name = args[i + 1];
         else if (args[i] == "--edge")
             edge = args[i + 1];
+        else if (args[i] == "--port-forward")
+            portForward = args[i + 1];
     }
-    if (name.empty() || (edge != "on" && edge != "off")) {
-        std::cerr << T("사용: moat-hub node-set --name 노드 --edge on|off [--config 파일]\n");
+    auto onOff = [](const std::string& v) { return v.empty() || v == "on" || v == "off"; };
+    if (name.empty() || (edge.empty() && portForward.empty()) || !onOff(edge) ||
+        !onOff(portForward)) {
+        std::cerr << T("사용: moat-hub node-set --name 노드 [--edge on|off] [--port-forward "
+                       "on|off] [--config 파일]\n");
         return 2;
     }
     std::string error;
@@ -146,12 +151,25 @@ int runNodeSet(const std::vector<std::string>& args) {
                 std::cerr << T("노드를 찾을 수 없습니다: ") << name << "\n";
                 return 1;
             }
-            setNodeEdge(db, *id, edge == "on");
-            audit(db, std::nullopt, edge == "on" ? "edge_enabled" : "edge_disabled", "cli", name,
-                  static_cast<std::int64_t>(std::time(nullptr)));
+            const auto now = static_cast<std::int64_t>(std::time(nullptr));
+            if (!edge.empty()) {
+                setNodeEdge(db, *id, edge == "on");
+                audit(db, std::nullopt, edge == "on" ? "edge_enabled" : "edge_disabled", "cli",
+                      name, now);
+            }
+            if (!portForward.empty()) {
+                setNodePortForward(db, *id, portForward == "on");
+                audit(db, std::nullopt,
+                      portForward == "on" ? "port_forward_on" : "port_forward_off", "cli", name,
+                      now);
+            }
         }
         matchOwner(cfg->databasePath);
-        std::cout << name << T(": 입구 ") << (edge == "on" ? T("지정") : T("해제")) << "\n";
+        if (!edge.empty())
+            std::cout << name << T(": 입구 ") << (edge == "on" ? T("지정") : T("해제")) << "\n";
+        if (!portForward.empty())
+            std::cout << name << T(": 공유기 포트 자동 열기 ")
+                      << (portForward == "on" ? T("켬") : T("끔")) << "\n";
     } catch (const std::exception& e) {
         std::cerr << T("실패: ") << e.what() << "\n";
         return 1;

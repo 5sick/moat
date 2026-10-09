@@ -20,9 +20,8 @@ TEST(init_infer_cookie_domain) {
 TEST(init_writes_valid_private_config) {
     std::string path = "/tmp/moat-init-test-" + std::to_string(::getpid()) + ".json";
     std::remove(path.c_str());
-    int rc =
-        runInit({"--public-url", "https://moat.example.com", "--email", "A@B.com", "--listen",
-                 "10.200.0.2:8700", "--trusted-proxy", "10.200.0.1", "--output", path});
+    int rc = runInit({"--public-url", "https://moat.example.com", "--email", "A@B.com", "--listen",
+                      "10.200.0.2:8700", "--trusted-proxy", "10.200.0.1", "--output", path});
     CHECK_EQ(rc, 0);
     struct stat st{};
     CHECK(::stat(path.c_str(), &st) == 0 && (st.st_mode & 0777) == 0600);

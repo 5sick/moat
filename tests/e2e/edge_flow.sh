@@ -7,13 +7,13 @@ export MOAT_LANG=ko # CLI 출력 언어 고정 (영어 확인은 따로)
 HUB=${1:-build/hub/moat-hub}
 DIST=$(cd "${2:-dist}" && pwd)
 AGENT="$DIST/moat-agent-linux-$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')"
-HP=18840; EP=18841; UP=18842; AP=18843
+HP=18840; EP=18841; UP=18842; AP=18843; NP=18844
 BASE="http://localhost:$HP"
 DIR=$(mktemp -d); trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$DIR"' EXIT
 PASS=0; FAIL=0
 ok()   { echo "  ok   $1"; PASS=$((PASS+1)); }
 bad()  { echo "  FAIL $1"; FAIL=$((FAIL+1)); }
-for p in $HP $EP $UP $AP; do ss -ltn | grep -q ":$p " && { echo "포트 $p 사용 중"; exit 1; }; done
+for p in $HP $EP $UP $AP $NP; do ss -ltn | grep -q ":$p " && { echo "포트 $p 사용 중"; exit 1; }; done
 
 # 가짜 업스트림: 받은 요청 정보를 JSON으로
 cat > "$DIR/up.py" <<'PY'
@@ -29,6 +29,23 @@ class H(BaseHTTPRequestHandler):
 HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
 PY
 python3 "$DIR/up.py" $UP &
+# 가짜 공유기 (NAT-PMP): 열린 포트를 파일에 기록
+cat > "$DIR/natpmp.py" <<'PY'
+import socket, struct, sys
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(("127.0.0.1", int(sys.argv[1])))
+maps = set()
+while True:
+    b, a = s.recvfrom(64)
+    if len(b) == 2 and b[1] == 0:
+        s.sendto(bytes([0, 128, 0, 0]) + b"\0\0\0\1" + bytes([203, 0, 113, 50]), a)
+    elif len(b) == 12 and b[1] in (1, 2):
+        port, life = struct.unpack(">H", b[4:6])[0], struct.unpack(">I", b[8:12])[0]
+        key = ("udp" if b[1] == 1 else "tcp") + "/" + str(port)
+        (maps.discard if life == 0 else maps.add)(key)
+        open(sys.argv[2], "w").write(" ".join(sorted(maps)))
+        s.sendto(bytes([0, 128 + b[1], 0, 0, 0, 0, 0, 1]) + b[4:6] + b[4:6] + b[8:12], a)
+PY
+python3 "$DIR/natpmp.py" $NP "$DIR/router" &
 python3 -m http.server $AP --bind 127.0.0.1 --directory "$DIR" >/dev/null 2>&1 & # 아직 공개하지 않은 앱
 
 cat > "$DIR/hub.json" <<JSON
@@ -59,7 +76,7 @@ A="$DIR/agent"
 TOKEN=$("$HUB" join-token --config "$DIR/hub.json" --name edge1 2>/dev/null | awk '{print $NF}')
 "$AGENT" join --dir "$A" --hub "http://127.0.0.1:$HP" --token "$TOKEN" >/dev/null 2>&1 || bad "join"
 echo "{\"http_addr\":\"127.0.0.1:$EP\",\"serve_plain\":true}" > "$A/edge.json"
-STATE_DIRECTORY="$DIR/state" "$AGENT" run --dir "$A" >"$DIR/agent.log" 2>&1 & AGENT_PID=$!
+MOAT_TEST_NATPMP=127.0.0.1:$NP STATE_DIRECTORY="$DIR/state" "$AGENT" run --dir "$A" >"$DIR/agent.log" 2>&1 & AGENT_PID=$!
 for _ in $(seq 50); do grep -q "Hub 접속 완료" "$DIR/agent.log" && break; sleep 0.1; done
 
 out=$(post /api/nodes/edge '{"id":1,"edge":true}')
@@ -160,6 +177,22 @@ post /api/settings/save '{"agent_expose":false}' >/dev/null
 out=$($X expose $UP --name exp2 2>&1)
 case "$out" in *"꺼져 있습니다"*) ok "설정에서 끄면 노드 공개 거부" ;; *) bad "설정 끄기 ($out)";; esac
 grep -q "service_exposed" <<<"$(sqlite3 "$DIR/hub.db" "SELECT group_concat(event) FROM audit_log")" && ok "공개 감사 로그" || bad "감사 로그"
+
+# 공유기 포트 자동 열기: 켜면 입구 노드가 공유기(가짜 NAT-PMP)에 80/443을 요청하고 결과를 보고
+out=$(post /api/nodes/portforward '{"id":1,"on":true}')
+for _ in $(seq 50); do [ "$(cat "$DIR/router" 2>/dev/null)" = "tcp/443 tcp/80" ] && break; sleep 0.1; done
+[ "$(cat "$DIR/router" 2>/dev/null)" = "tcp/443 tcp/80" ] && ok "공유기에 80·443 요청 (NAT-PMP)" || bad "공유기 포트 ($out / $(cat "$DIR/router" 2>/dev/null))"
+for _ in $(seq 50); do
+    pm=$(curl -s -H "Cookie: $SESSION" "$BASE/api/nodes/1")
+    echo "$pm" | python3 -c 'import json,sys; p=json.load(sys.stdin)["portmap"]; assert p["gateway"]=="natpmp" and p["external_ip"]=="203.0.113.50" and all(m["ok"] for m in p["mappings"]) and len(p["mappings"])==2' 2>/dev/null && break
+    sleep 0.1
+done
+echo "$pm" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["port_forward"] and d["portmap"]["gateway"]=="natpmp"' 2>/dev/null \
+    && ok "공유기 상태 보고 (종류·외부 주소·포트별 결과)" || bad "공유기 상태 ($pm)"
+post /api/nodes/portforward '{"id":1,"on":false}' >/dev/null
+for _ in $(seq 50); do [ -z "$(cat "$DIR/router")" ] && break; sleep 0.1; done
+[ -z "$(cat "$DIR/router")" ] && ok "끄면 공유기 포트 닫음" || bad "포트 닫기 ($(cat "$DIR/router"))"
+grep -q '"port_forward_on"\|port_forward_on' <<<"$(sqlite3 "$DIR/hub.db" "SELECT group_concat(event) FROM audit_log")" && ok "공유기 포트 감사 로그" || bad "감사 로그"
 
 # Agent 터널: 입구가 아닌 두 번째 서버(home)의 서비스를 터널로만 연결 (직통 길이 없는 집 서버 가정)
 post /api/settings/save '{"agent_expose":true}' >/dev/null

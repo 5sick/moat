@@ -317,6 +317,71 @@ function listOrNone(id, items, render, none) {
   ul.replaceChildren(...(items.length ? items.map(render) : [el('li', { class: 'none', text: none })]));
 }
 
+// 클라우드 방화벽 안내 (공유기가 아니라 클라우드 쪽에서 막는다)
+const CLOUD_GUIDE = {
+  oci: ['Oracle Cloud', 'OCI 콘솔 → 네트워킹 → 가상 클라우드 네트워크 → 서브넷의 보안 목록 → 수신 규칙 추가: 소스 0.0.0.0/0, TCP 80과 443.'],
+  aws: ['AWS', 'EC2 콘솔 → 인스턴스 → 보안 → 보안 그룹 → 인바운드 규칙 편집: HTTP(80)·HTTPS(443), 소스 0.0.0.0/0.'],
+  gcp: ['Google Cloud', 'VPC 네트워크 → 방화벽 → 방화벽 규칙 만들기: 수신, 이 VM, tcp:80,443, 소스 0.0.0.0/0 (또는 VM 수정에서 HTTP·HTTPS 트래픽 허용).'],
+  azure: ['Azure', '가상 머신 → 네트워킹 → 인바운드 포트 규칙 추가: 80, 443.'],
+  hetzner: ['Hetzner', 'Cloud 콘솔 → 방화벽(쓰는 경우) → 인바운드 규칙: TCP 80, 443.'],
+  digitalocean: ['DigitalOcean', 'Networking → Firewalls(쓰는 경우) → Inbound Rules: HTTP, HTTPS.'],
+  vultr: ['Vultr', 'Network → Firewall(쓰는 경우) → TCP 80, 443 허용.'],
+  linode: ['Linode/Akamai', 'Cloud Firewalls(쓰는 경우) → Inbound: TCP 80, 443 허용.'],
+  scaleway: ['Scaleway', 'Security Groups → Inbound: TCP 80, 443 허용.'],
+};
+
+function isPublicIp(ip) {
+  const m = /^(\d+)\.(\d+)\.\d+\.\d+$/.exec(ip || '');
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return !(a === 10 || a === 127 || (a === 172 && b >= 16 && b < 32) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b < 128) || (a === 169 && b === 254));
+}
+
+function renderReach(n) {
+  $('reach-box').hidden = !n.edge;
+  if (!n.edge) return;
+  const box = $('reach');
+  const cloud = (n.inventory?.system || {}).cloud;
+  const items = [];
+  if (cloud && CLOUD_GUIDE[cloud]) {
+    const [name, how] = CLOUD_GUIDE[cloud];
+    items.push(el('div', {}, [el('strong', { text: `클라우드 서버 (${name})` })]),
+      el('div', { class: 'meta', text: `공유기 대신 클라우드 방화벽이 막습니다. ${how} 서버 안의 방화벽(ufw·firewalld)도 확인하세요.` }));
+    box.replaceChildren(...items);
+    return;
+  }
+  const toggle = el('input', { type: 'checkbox', id: 'pf-on' });
+  toggle.checked = !!n.port_forward;
+  toggle.addEventListener('change', async () => {
+    try {
+      await withReauth(() => api('/api/nodes/portforward', { id: n.id, on: toggle.checked }));
+      show(toggle.checked ? '공유기에 80·443을 요청했습니다. 잠시 후 결과가 보입니다.' : '공유기 포트 자동 열기를 껐습니다 (연 포트를 닫습니다).', 'ok');
+      setTimeout(() => refresh().catch(() => {}), 4000);
+    } catch (e) { toggle.checked = !toggle.checked; show(e.message); }
+  });
+  items.push(el('label', { class: 'check' }, [toggle, ' 공유기에서 80·443 자동 열기 (UPnP/NAT-PMP)']),
+    el('div', { class: 'meta', text: '집 공유기 뒤에 있는 서버라면 공유기에 포트포워딩을 요청합니다. 공유기 설정에서 UPnP가 켜져 있어야 합니다.' }));
+  const pm = n.portmap;
+  if (n.port_forward && pm) {
+    if (!pm.gateway) {
+      items.push(el('div', { class: 'banner' }, [el('strong', { text: '공유기가 자동 열기를 지원하지 않습니다.' }),
+        el('div', { class: 'meta', text: '공유기 관리 화면(보통 192.168.0.1 또는 192.168.1.1)의 포트포워딩 메뉴에서 TCP 80·443을 이 서버로 직접 연결하세요. ipTIME: 고급 설정 → NAT/라우터 관리 → 포트포워드 설정.' })]));
+    } else {
+      items.push(el('div', { class: 'meta', text: `공유기 ${pm.gateway === 'upnp' ? 'UPnP' : 'NAT-PMP'} · 외부 주소 ${pm.external_ip || '알 수 없음'} · ${fmtTime(pm.checked_at)} 확인` }));
+      for (const m of pm.mappings || []) {
+        items.push(el('div', {}, [el('span', { class: `dot ${m.ok ? 'on' : 'off'}` }), ` ${m.proto.toUpperCase()} ${m.port} `,
+          el('span', { class: 'meta', text: m.ok ? '열림' : (m.error || '실패') })]));
+      }
+      const doubleNat = pm.external_ip && isPublicIp(n.last_ip) && n.last_ip !== pm.external_ip;
+      if (pm.cgnat || doubleNat) {
+        items.push(el('div', { class: 'banner' }, [el('strong', { text: '통신사 NAT(CGNAT) 또는 이중 공유기 뒤에 있습니다.' }),
+          el('div', { class: 'meta', text: '공유기에 포트를 열어도 인터넷에서 닿지 않습니다. 앞쪽 공유기도 함께 설정하거나, Tailscale 모드 또는 공인 IP가 있는 서버(클라우드 VM)를 입구로 쓰세요.' })]));
+      }
+    }
+  }
+  box.replaceChildren(...items);
+}
+
 function renderNode(n) {
   state.node = n;
   document.title = `Moat · ${n.name}`;
@@ -328,6 +393,7 @@ function renderNode(n) {
   $('open-term').href = `/terminal?node=${n.id}`;
   $('open-term').hidden = !n.connected || termUsers.length === 0 || state.features?.terminal === false;
   renderAlerts([n]);
+  renderReach(n);
 
   const s = n.latest;
   $('v-cpu').textContent = s ? `${s.cpu.toFixed(0)}%` : '';

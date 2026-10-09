@@ -52,6 +52,11 @@ class HubApp {
     Json::Value buildTunnelConfig(const Node& n);
     // Agent가 보낸 서비스 상태 확인 결과
     void ingestServiceHealth(std::int64_t nodeId, const Json::Value& msg);
+    // 공유기 포트 자동 열기: 노드에 보낼 원하는 포트, Agent가 보낸 결과, 화면용 상태
+    Json::Value buildPortmap(const Node& n);
+    void ingestPortmap(std::int64_t nodeId, const Json::Value& status);
+    Json::Value portmapJson(std::int64_t nodeId);
+    void registerPortmapRoutes();
     // Agent 인벤토리에서 메시 주소가 바뀌면 저장하고 신뢰 프록시 목록을 갱신.
     void updateMeshAddress(std::int64_t nodeId, const std::string& address);
     void refreshEdgeAddresses();
@@ -119,6 +124,8 @@ class HubApp {
         std::int64_t checkedAt = 0;
         double latencyMs = 0;
     };
+    std::mutex portmapMu_;
+    std::map<std::int64_t, Json::Value> portmap_; // 노드별 마지막 공유기 상태
     std::mutex healthMu_;
     std::map<std::int64_t, ServiceHealth> health_;
     void tickServices(std::int64_t now);
