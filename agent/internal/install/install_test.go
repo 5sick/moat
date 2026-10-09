@@ -60,3 +60,14 @@ func TestParentDomain(t *testing.T) {
 		}
 	}
 }
+
+func TestMessagesFollowLanguage(t *testing.T) {
+	t.Setenv("MOAT_LANG", "en")
+	var b strings.Builder
+	s := &Installer{Out: &b}
+	s.step(4, "접속 확인")
+	s.say("  접속 확인 ✓")
+	if got := b.String(); got != "\n[4] Check access\n  Access check ✓\n" {
+		t.Fatalf("%q", got)
+	}
+}

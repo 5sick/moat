@@ -62,7 +62,7 @@ func New(opt Options, out io.Writer) *Installer {
 }
 
 func (s *Installer) say(format string, a ...any) { fmt.Fprintf(s.Out, i18n.T(format)+"\n", a...) }
-func (s *Installer) step(n int, msg string)      { fmt.Fprintf(s.Out, "\n[%d] %s\n", n, msg) }
+func (s *Installer) step(n int, msg string)      { fmt.Fprintf(s.Out, "\n[%d] %s\n", n, i18n.T(msg)) }
 
 // choose는 번호 선택을 받는다. Enter면 0번(추천).
 func (s *Installer) choose(question string, options []string) int {
